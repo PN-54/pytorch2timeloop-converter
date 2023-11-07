@@ -21,6 +21,7 @@ def convert_model_with_sample_input(model: nn.Module,
                                     batch_size: int,
                                     model_name: str,
                                     save_dir: Path,
+                                    ignored_func=None,
                                     exception_module_names=[]):
     """
     Convert a general PyTorch model to Timeloop problem files.
@@ -42,7 +43,7 @@ def convert_model_with_sample_input(model: nn.Module,
     """
     logger.info("converting {} in {} model ...".format("all", model_name))
 
-    layer_data = _make_summary(model, sample_input)
+    layer_data = _make_summary(model, sample_input, ignored_func)
     _convert_from_layer_data(layer_data, model_name, save_dir)
 
 
