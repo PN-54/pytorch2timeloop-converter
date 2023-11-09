@@ -112,7 +112,7 @@ class Converter(fx.Interpreter):
         self.summary.append(description)
 
         return result
-    
+
     def call_function(self, target, args, kwargs, name: str,
                       original_args: tuple):
         result = super().call_function(target, args, kwargs)
