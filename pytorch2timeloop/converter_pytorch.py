@@ -21,6 +21,7 @@ def convert_model_with_sample_input(model: nn.Module,
                                     batch_size: int,
                                     model_name: str,
                                     save_dir: Path,
+                                    fuse=False,
                                     ignored_func=None,
                                     ignored_modules=None,
                                     bypassed_modules=None,
@@ -46,7 +47,7 @@ def convert_model_with_sample_input(model: nn.Module,
     logger.info("converting {} in {} model ...".format("all", model_name))
 
     layer_data = _make_summary(model, sample_input, ignored_func, ignored_modules, bypassed_modules)
-    _convert_from_layer_data(layer_data, model_name, save_dir)
+    _convert_from_layer_data(layer_data, model_name, save_dir, fuse)
 
 
 def convert_model(model: nn.Module, input_size: tuple, batch_size: int,
