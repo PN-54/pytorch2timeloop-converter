@@ -35,7 +35,8 @@ class Converter(fx.Interpreter):
     UNARY_ELEMENTWISE_FUNC = [
         math.sqrt,
         F.relu,
-        F.relu6
+        F.relu6,
+        operator.neg
     ]
 
     BINARY_ELEMENTWISE_FUNC = [
@@ -135,9 +136,17 @@ class Converter(fx.Interpreter):
             pass
         elif target in Converter.BINARY_ELEMENTWISE_FUNC:
             if isinstance(args[1], torch.Tensor):
+                if (isinstance(args[0], int)):
+                    shape0 = torch.Size([1])
+                else:
+                    shape0 = args[0].shape
+                if (isinstance(args[1], int)):
+                    shape1 = torch.Size([1])
+                else:
+                    shape1 = args[1].shape
                 description = BinaryElementwiseFuncDescription(
-                    ifmap1_shape = args[0].shape,
-                    ifmap2_shape = args[1].shape,
+                    ifmap1_shape = shape0,
+                    ifmap2_shape = shape1,
                     ofmap_shape = result.shape,
                     ifmap1_name = arg_names[0],
                     ifmap2_name = arg_names[1],
