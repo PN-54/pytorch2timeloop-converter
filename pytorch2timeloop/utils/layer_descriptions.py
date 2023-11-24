@@ -254,11 +254,6 @@ class MaxPoolLayerDescription(LayerDescription):
         config['problem']['instance']['Wstride'] = self.w_stride
         config['problem']['instance']['Hstride'] = self.h_stride
 
-        # for dspace in config['problem']['shape']['data-spaces']:
-        #     if dspace['name'] == 'Inputs':
-        #         dspace['name'] = self.ifmap_name
-        #     elif dspace['name'] == 'Outputs':
-        #         dspace['name'] = self.ofmap_name
         return config
 
     def to_fused_yaml(self):
@@ -272,52 +267,8 @@ class MaxPoolLayerDescription(LayerDescription):
         config['problem']['instance']['Wstride'] = self.w_stride
         config['problem']['instance']['Hstride'] = self.h_stride
 
-        # for dspace in config['problem']['shape']['data-spaces']:
-        #     if dspace['name'] == 'Inputs':
-        #         dspace['name'] = self.ifmap_name
-        #     elif dspace['name'] == 'Outputs':
-        #         dspace['name'] = self.ofmap_name
         return config
 
-        # dims = list(map(lambda n: self.name + '_' + n, 'CRSNPQ'))
-        # (dim_C, dim_R, dim_S, dim_N, dim_P, dim_Q) = dims
-
-        # config = {
-        #     'shape': {
-        #         'name': self.name,
-        #         'dimensions': dims,
-        #         'data-spaces': [
-        #             {
-        #                 'name': self.ifmap_name,
-        #                 'projection': (
-        #                     f'[ {dim_N}, '
-        #                       f'{dim_C}, '
-        #                       f'{dim_R} + {dim_P}*{self.h_stride},  '
-        #                       f'{dim_S} + {dim_Q}*{self.w_stride} ]'
-        #                 )
-        #             },
-        #             {
-        #                 'name': self.ofmap_name,
-        #                 'projection': (
-        #                     f'[ {dim_N}, '
-        #                       f'{dim_C}, '
-        #                       f'{dim_P}, '
-        #                       f'{dim_Q} ]'
-        #                 ),
-        #                 'read-write': True
-        #             }
-        #         ]
-        #     },
-        #     'instance': (
-        #         f'0 <= {dim_C} < {self.c} and '
-        #         f'0 <= {dim_N} < {self.n} and '
-        #         f'0 <= {dim_P} < {self.p} and '
-        #         f'0 <= {dim_Q} < {self.q} and '
-        #         f'0 <= {dim_R} < {self.r} and '
-        #         f'0 <= {dim_S} < {self.s}'
-        #     )
-        # }
-        # return config
 
 
 @dataclass
@@ -367,38 +318,6 @@ class BinaryElementwiseFuncDescription(LayerDescription):
             )
         assert(len(self.ifmap1_shape) == len(self.ofmap_shape))
         assert(len(self.ifmap2_shape) == len(self.ofmap_shape))
-
-        # config = super().to_yaml()
-
-        # dims = list(string.ascii_uppercase[:len(self.ofmap_shape)])
-
-        # for dspace in config['problem']['shape']['data-spaces']:
-        #     if dspace['name'] == 'Input1':
-        #         dspace['name'] = 'Weights',  # self.ifmap1_name
-        #         dspace['projection'] = []
-        #         for d, size in zip(dims, self.ifmap1_shape):
-        #             if size > 1:
-        #                 dspace['projection'].append([[d]])
-        #     elif dspace['name'] == 'Input2':
-        #         dspace['name'] = 'Inputs',  # self.ifmap2_name
-        #         dspace['projection'] = []
-        #         for d, size in zip(dims, self.ifmap2_shape):
-        #             if size > 1:
-        #                 dspace['projection'].append([[d]])
-        #     elif dspace['name'] == 'Outputs':
-        #         dspace['name'] = 'Outputs',  # self.ofmap_name
-        #         dspace['projection'] = list(map(
-        #             lambda d: [[d]],
-        #             dims
-        #         ))
-
-        # config['problem']['shape']['dimensions'] = dims
-
-        # config['problem']['instance'] = {}
-        # for dim, size in zip(dims, self.ifmap1_shape):
-        #     config['problem']['instance'][dim] = size
-
-        # return config
 
         # If all dim_sizes are 1, add 'exhaustive' to name
         product = lambda l: reduce(lambda x, y: x*y, l)
