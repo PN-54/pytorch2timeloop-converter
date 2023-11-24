@@ -58,7 +58,8 @@ class ConvLayerDescription(LayerDescription):
         return int((self.h - self.r + 2 * self.h_pad) / self.h_stride) + 1
 
     def to_yaml(self):
-        dims = list(map(lambda n: self.name + '_' + n, 'GCMRSNPQ'))
+        # dims = list(map(lambda n: self.name + '_' + n, 'GCMRSNPQ'))
+        dims = list('GCMRSNPQ')
         (dim_G, dim_C, dim_M, dim_R, dim_S, dim_N, dim_P, dim_Q) = dims
 
         in_channels_per_group = self.c // self.g
@@ -84,11 +85,15 @@ class ConvLayerDescription(LayerDescription):
                     {
                         'name': 'Wstride',
                         'default': self.w_stride
+                    },
+                    {
+                        'name': 'Nop',
+                        'default': 1
                     }
                 ],
                 'data-spaces': [
                     {
-                        'name': self.filter_name,
+                        'name': 'Weights',  # self.filter_name,
                         'projection': [
                             [[dim_G]],
                             [[dim_C]],
@@ -98,19 +103,19 @@ class ConvLayerDescription(LayerDescription):
                         ]
                     },
                     {
-                        'name': self.ifmap_name,
+                        'name': 'Inputs',  # self.ifmap_name,
                         'projection': [
                             [[dim_N]],
-                            [[dim_G, 'Cgroup'], [f'{dim_C}']],
-                            [[dim_R], [dim_P, 'Hstride']],
-                            [[dim_S], [dim_Q, 'Wstride']]
+                            [[dim_G, 'Cgroup'], [dim_C, 'Nop']],
+                            [[dim_R, 'Nop'], [dim_P, 'Hstride']],
+                            [[dim_S, 'Nop'], [dim_Q, 'Wstride']]
                         ]
                     },
                     {
-                        'name': self.ofmap_name,
+                        'name': 'Outputs',  # self.ofmap_name,
                         'projection': [
                             [[dim_N]],
-                            [[dim_G, 'Mgroup'], [dim_M]],
+                            [[dim_G, 'Mgroup'], [dim_M, 'Nop']],
                             [[dim_P]],
                             [[dim_Q]]
                         ],
@@ -133,7 +138,8 @@ class ConvLayerDescription(LayerDescription):
         return config
 
     def to_fused_yaml(self):
-        dims = list(map(lambda n: self.name + '_' + n, 'GCMRSNPQ'))
+        # dims = list(map(lambda n: self.name + '_' + n, 'GCMRSNPQ'))
+        dims = list('GCMRSNPQ')
         (dim_G, dim_C, dim_M, dim_R, dim_S, dim_N, dim_P, dim_Q) = dims
 
         in_channels_per_group = self.c // self.g
@@ -143,43 +149,70 @@ class ConvLayerDescription(LayerDescription):
             'shape': {
                 'name': self.name,
                 'dimensions': dims,
+                'coefficients': [
+                    {
+                        'name': 'Cgroup',
+                        'default': in_channels_per_group
+                    },
+                    {
+                        'name': 'Mgroup',
+                        'default': out_channels_per_group
+                    },
+                    {
+                        'name': 'Hstride',
+                        'default': self.h_stride
+                    },
+                    {
+                        'name': 'Wstride',
+                        'default': self.w_stride
+                    },
+                    {
+                        'name': 'Nop',
+                        'default': 1
+                    }
+                ],
                 'data-spaces': [
                     {
-                        'name': self.filter_name,
-                        'projection': \
-                            f'[ {dim_G}, {dim_C}, {dim_M}, {dim_R}, {dim_S} ]'
+                        'name': 'Weights',  # self.filter_name,
+                        'projection': [
+                            [[dim_G]],
+                            [[dim_C]],
+                            [[dim_M]],
+                            [[dim_R]],
+                            [[dim_S]]
+                        ]
                     },
                     {
-                        'name': self.ifmap_name,
-                        'projection': (
-                            f'[ {dim_N}, '
-                              f'{dim_G}*{in_channels_per_group} + {dim_C}, '
-                              f'{dim_R} + {dim_P}*{self.h_stride},  '
-                              f'{dim_S} + {dim_Q}*{self.w_stride} ]'
-                        )
+                        'name': 'Inputs',  # self.ifmap_name,
+                        'projection': [
+                            [[dim_N]],
+                            [[dim_G, 'Cgroup'], [dim_C, 'Nop']],
+                            [[dim_R, 'Nop'], [dim_P, 'Hstride']],
+                            [[dim_S, 'Nop'], [dim_Q, 'Wstride']]
+                        ]
                     },
                     {
-                        'name': self.ofmap_name,
-                        'projection': (
-                            f'[ {dim_N}, '
-                              f'{dim_G}*{out_channels_per_group} + {dim_M}, '
-                              f'{dim_P}, '
-                              f'{dim_Q} ]'
-                        ),
+                        'name': 'Outputs',  # self.ofmap_name,
+                        'projection': [
+                            [[dim_N]],
+                            [[dim_G, 'Mgroup'], [dim_M, 'Nop']],
+                            [[dim_P]],
+                            [[dim_Q]]
+                        ],
                         'read-write': True
                     }
                 ]
             },
-            'instance': (
-                f'0 <= {dim_G} < {self.g} and '
-                f'0 <= {dim_C} < {in_channels_per_group} and '
-                f'0 <= {dim_M} < {out_channels_per_group} and '
-                f'0 <= {dim_N} < {self.n} and '
-                f'0 <= {dim_P} < {self.p} and '
-                f'0 <= {dim_Q} < {self.q} and '
-                f'0 <= {dim_R} < {self.r} and '
-                f'0 <= {dim_S} < {self.s}'
-            )
+            'instance': {
+                'G': self.g,
+                'C': in_channels_per_group,
+                'M': out_channels_per_group,
+                'N': self.n,
+                'R': self.r,
+                'S': self.s,
+                'P': self.p,
+                'Q': self.q
+            }
         }
 
         return config
@@ -221,53 +254,70 @@ class MaxPoolLayerDescription(LayerDescription):
         config['problem']['instance']['Wstride'] = self.w_stride
         config['problem']['instance']['Hstride'] = self.h_stride
 
-        for dspace in config['problem']['shape']['data-spaces']:
-            if dspace['name'] == 'Inputs':
-                dspace['name'] = self.ifmap_name
-            elif dspace['name'] == 'Outputs':
-                dspace['name'] = self.ofmap_name
+        # for dspace in config['problem']['shape']['data-spaces']:
+        #     if dspace['name'] == 'Inputs':
+        #         dspace['name'] = self.ifmap_name
+        #     elif dspace['name'] == 'Outputs':
+        #         dspace['name'] = self.ofmap_name
         return config
 
     def to_fused_yaml(self):
-        dims = list(map(lambda n: self.name + '_' + n, 'CRSNPQ'))
-        (dim_C, dim_R, dim_S, dim_N, dim_P, dim_Q) = dims
+        config = super().to_fused_yaml()
+        config['problem']['instance']['R'] = self.r
+        config['problem']['instance']['S'] = self.s
+        config['problem']['instance']['P'] = self.p
+        config['problem']['instance']['Q'] = self.q
+        config['problem']['instance']['C'] = self.c
+        config['problem']['instance']['N'] = self.n
+        config['problem']['instance']['Wstride'] = self.w_stride
+        config['problem']['instance']['Hstride'] = self.h_stride
 
-        config = {
-            'shape': {
-                'name': self.name,
-                'dimensions': dims,
-                'data-spaces': [
-                    {
-                        'name': self.ifmap_name,
-                        'projection': (
-                            f'[ {dim_N}, '
-                              f'{dim_C}, '
-                              f'{dim_R} + {dim_P}*{self.h_stride},  '
-                              f'{dim_S} + {dim_Q}*{self.w_stride} ]'
-                        )
-                    },
-                    {
-                        'name': self.ofmap_name,
-                        'projection': (
-                            f'[ {dim_N}, '
-                              f'{dim_C}, '
-                              f'{dim_P}, '
-                              f'{dim_Q} ]'
-                        ),
-                        'read-write': True
-                    }
-                ]
-            },
-            'instance': (
-                f'0 <= {dim_C} < {self.c} and '
-                f'0 <= {dim_N} < {self.n} and '
-                f'0 <= {dim_P} < {self.p} and '
-                f'0 <= {dim_Q} < {self.q} and '
-                f'0 <= {dim_R} < {self.r} and '
-                f'0 <= {dim_S} < {self.s}'
-            )
-        }
+        # for dspace in config['problem']['shape']['data-spaces']:
+        #     if dspace['name'] == 'Inputs':
+        #         dspace['name'] = self.ifmap_name
+        #     elif dspace['name'] == 'Outputs':
+        #         dspace['name'] = self.ofmap_name
         return config
+
+        # dims = list(map(lambda n: self.name + '_' + n, 'CRSNPQ'))
+        # (dim_C, dim_R, dim_S, dim_N, dim_P, dim_Q) = dims
+
+        # config = {
+        #     'shape': {
+        #         'name': self.name,
+        #         'dimensions': dims,
+        #         'data-spaces': [
+        #             {
+        #                 'name': self.ifmap_name,
+        #                 'projection': (
+        #                     f'[ {dim_N}, '
+        #                       f'{dim_C}, '
+        #                       f'{dim_R} + {dim_P}*{self.h_stride},  '
+        #                       f'{dim_S} + {dim_Q}*{self.w_stride} ]'
+        #                 )
+        #             },
+        #             {
+        #                 'name': self.ofmap_name,
+        #                 'projection': (
+        #                     f'[ {dim_N}, '
+        #                       f'{dim_C}, '
+        #                       f'{dim_P}, '
+        #                       f'{dim_Q} ]'
+        #                 ),
+        #                 'read-write': True
+        #             }
+        #         ]
+        #     },
+        #     'instance': (
+        #         f'0 <= {dim_C} < {self.c} and '
+        #         f'0 <= {dim_N} < {self.n} and '
+        #         f'0 <= {dim_P} < {self.p} and '
+        #         f'0 <= {dim_Q} < {self.q} and '
+        #         f'0 <= {dim_R} < {self.r} and '
+        #         f'0 <= {dim_S} < {self.s}'
+        #     )
+        # }
+        # return config
 
 
 @dataclass
@@ -318,35 +368,64 @@ class BinaryElementwiseFuncDescription(LayerDescription):
         assert(len(self.ifmap1_shape) == len(self.ofmap_shape))
         assert(len(self.ifmap2_shape) == len(self.ofmap_shape))
 
-        config = super().to_yaml()
+        # config = super().to_yaml()
 
+        # dims = list(string.ascii_uppercase[:len(self.ofmap_shape)])
+
+        # for dspace in config['problem']['shape']['data-spaces']:
+        #     if dspace['name'] == 'Input1':
+        #         dspace['name'] = 'Weights',  # self.ifmap1_name
+        #         dspace['projection'] = []
+        #         for d, size in zip(dims, self.ifmap1_shape):
+        #             if size > 1:
+        #                 dspace['projection'].append([[d]])
+        #     elif dspace['name'] == 'Input2':
+        #         dspace['name'] = 'Inputs',  # self.ifmap2_name
+        #         dspace['projection'] = []
+        #         for d, size in zip(dims, self.ifmap2_shape):
+        #             if size > 1:
+        #                 dspace['projection'].append([[d]])
+        #     elif dspace['name'] == 'Outputs':
+        #         dspace['name'] = 'Outputs',  # self.ofmap_name
+        #         dspace['projection'] = list(map(
+        #             lambda d: [[d]],
+        #             dims
+        #         ))
+
+        # config['problem']['shape']['dimensions'] = dims
+
+        # config['problem']['instance'] = {}
+        # for dim, size in zip(dims, self.ifmap1_shape):
+        #     config['problem']['instance'][dim] = size
+
+        # return config
         dims = list(string.ascii_uppercase[:len(self.ofmap_shape)])
+        bounds = {}
+        for dim_name, dim_size in zip(dims, self.ifmap1_shape):
+            bounds[dim_name] = dim_size
 
-        for dspace in config['problem']['shape']['data-spaces']:
-            if dspace['name'] == 'Input1':
-                dspace['name'] = self.ifmap1_name
-                dspace['projection'] = []
-                for d, size in zip(dims, self.ifmap1_shape):
-                    if size > 1:
-                        dspace['projection'].append([[d]])
-            elif dspace['name'] == 'Input2':
-                dspace['name'] = self.ifmap2_name
-                dspace['projection'] = []
-                for d, size in zip(dims, self.ifmap2_shape):
-                    if size > 1:
-                        dspace['projection'].append([[d]])
-            elif dspace['name'] == 'Outputs':
-                dspace['name'] = self.ofmap_name
-                dspace['projection'] = list(map(
-                    lambda d: [[d]],
-                    dims
-                ))
-
-        config['problem']['shape']['dimensions'] = dims
-
-        config['problem']['instance'] = {}
-        for dim, size in zip(dims, self.ifmap1_shape):
-            config['problem']['instance'][dim] = size
+        config = {
+            'shape': {
+                'name': self.name,
+                'dimensions': dims,
+                'data-spaces': [
+                    {
+                        'name': 'Weights',  # self.ifmap1_name,
+                        'projection': [[[d]] for d in dims]
+                    },
+                    {
+                        'name': 'Inputs',  # self.ifmap2_name,
+                        'projection': [[[d]] for d in dims]
+                    },
+                    {
+                        'name': 'Outputs',  # self.ofmap_name,
+                        'projection': [[[d]] for d in dims],
+                        'read-write': True
+                    }
+                ]
+            },
+            'instance': bounds
+        }
 
         return config
 
@@ -365,9 +444,9 @@ class BinaryElementwiseFuncDescription(LayerDescription):
         assert(len(self.ifmap2_shape) == len(self.ofmap_shape))
 
         dims = list(string.ascii_uppercase[:len(self.ofmap_shape)])
-        bounds = []
+        bounds = {}
         for dim_name, dim_size in zip(dims, self.ifmap1_shape):
-            bounds.append(f'0 <= {dim_name} < {dim_size}')
+            bounds[dim_name] = dim_size
 
         config = {
             'shape': {
@@ -375,21 +454,21 @@ class BinaryElementwiseFuncDescription(LayerDescription):
                 'dimensions': dims,
                 'data-spaces': [
                     {
-                        'name': self.ifmap1_name,
-                        'projection': '[ ' + ', '.join(dims) + ' ]'
+                        'name': 'Weights',  # self.ifmap1_name,
+                        'projection': [[[d]] for d in dims]
                     },
                     {
-                        'name': self.ifmap2_name,
-                        'projection': '[ ' + ', '.join(dims) + ' ]'
+                        'name': 'Inputs',  # self.ifmap2_name,
+                        'projection': [[[d]] for d in dims]
                     },
                     {
-                        'name': self.ofmap_name,
-                        'projection': '[ ' + ', '.join(dims) + ' ]',
+                        'name': 'Outputs',  # self.ofmap_name,
+                        'projection': [[[d]] for d in dims],
                         'read-write': True
                     }
                 ]
             },
-            'instance': ' and '.join(bounds)
+            'instance': bounds
         }
 
         return config
