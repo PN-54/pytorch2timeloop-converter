@@ -400,19 +400,9 @@ class BinaryElementwiseFuncDescription(LayerDescription):
 
         # return config
 
-        # If all dim_sizes are 1, make one of them 2 so that Timeloop 
-        # doesn't get stuck
-        product = lambda l: reduce(lambda x, y: x*y, l)
-        ifmap_prod = product(self.ifmap1_shape)
-
-        ifmap1_shape_copy = list(self.ifmap1_shape)
-        
-        if ifmap_prod == 1: 
-            ifmap1_shape_copy[0] += 1
-
         dims = list(string.ascii_uppercase[:len(self.ofmap_shape)])
         bounds = {}
-        for dim_name, dim_size in zip(dims, ifmap1_shape_copy):
+        for dim_name, dim_size in zip(dims, self.ifmap1_shape):
             bounds[dim_name] = dim_size
 
         config = {
