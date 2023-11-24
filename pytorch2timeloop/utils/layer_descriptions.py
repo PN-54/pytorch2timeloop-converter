@@ -400,6 +400,13 @@ class BinaryElementwiseFuncDescription(LayerDescription):
 
         # return config
 
+        # If all dim_sizes are 1, add 'exhaustive' to name
+        product = lambda l: reduce(lambda x, y: x*y, l)
+        ifmap_prod = product(self.ifmap1_shape)
+
+        if ifmap_prod == 1: 
+            self.name += "_exhaustive"
+
         dims = list(string.ascii_uppercase[:len(self.ofmap_shape)])
         bounds = {}
         for dim_name, dim_size in zip(dims, self.ifmap1_shape):
