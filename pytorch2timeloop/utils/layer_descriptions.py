@@ -217,6 +217,204 @@ class ConvLayerDescription(LayerDescription):
 
         return config
 
+# Conv Transpose Does not work right now. Do not use. 
+@dataclass
+class ConvTransposeLayerDescription(LayerDescription):
+    g: int
+    m: int
+    w: int
+    h: int
+    c: int
+    n: int
+    s: int
+    r: int
+    w_pad: int
+    h_pad: int
+    w_stride: int
+    h_stride: int
+    ifmap_name: str
+    filter_name: str
+    ofmap_name: str
+
+    # w,h: input width, height
+    # s,r: kernel width, height
+    @property
+    def q(self):
+        # (Win​−1)×stride[1]−2×padding[1]+dilation[1]×(kernel_size[1]−1)+output_padding[1]+1
+        # dilation = 1, output_padding = 0
+        return int((self.w-1) * self.w_stride - 2 * self.w_pad + 1 * (self.s-1) + 0 + 1)
+
+    @property
+    def p(self):
+        # (Hin​−1)×stride[0]−2×padding[0]+dilation[0]×(kernel_size[0]−1)+output_padding[0]+1
+        # dilation = 1, output_padding = 0
+        return int((self.h-1) * self.h_stride - 2 * self.h_pad + 1 * (self.r-1) + 0 + 1)
+
+    def to_yaml(self):
+        # dims = list(map(lambda n: self.name + '_' + n, 'GCMRSNPQ'))
+        # dims P and H are input height and width respectively
+        dims = list('GCMRSNPQ')
+        (dim_G, dim_C, dim_M, dim_R, dim_S, dim_N, dim_P, dim_Q) = dims
+
+        in_channels_per_group = self.c // self.g
+        out_channels_per_group = self.m // self.g
+
+        self.name += "_transpose"
+
+        config = {
+            'shape': {
+                'name': self.name,
+                'dimensions': dims,
+                'coefficients': [
+                    {
+                        'name': 'Cgroup',
+                        'default': in_channels_per_group
+                    },
+                    {
+                        'name': 'Mgroup',
+                        'default': out_channels_per_group
+                    },
+                    {
+                        'name': 'Hstride',
+                        'default': self.h_stride
+                    },
+                    {
+                        'name': 'Wstride',
+                        'default': self.w_stride
+                    },
+                    {
+                        'name': 'Nop',
+                        'default': 1
+                    }
+                ],
+                'data-spaces': [
+                    {
+                        'name': 'Weights',  # self.filter_name,
+                        'projection': [
+                            [[dim_G]],
+                            [[dim_C]],
+                            [[dim_M]],
+                            [[dim_R]],
+                            [[dim_S]]
+                        ]
+                    },
+                    {
+                        'name': 'Inputs',  # self.ifmap_name,
+                        'projection': [
+                            [[dim_N]],
+                            [[dim_G, 'Cgroup'], [dim_C, 'Nop']],
+                            [[dim_P]],
+                            [[dim_Q]]
+                        ]
+                    },
+                    {
+                        'name': 'Outputs',  # self.ofmap_name,
+                        'projection': [
+                            [[dim_N]],
+                            [[dim_G, 'Mgroup'], [dim_M, 'Nop']],
+                            [[dim_R, 'Nop'], [dim_P, 'Hstride']],
+                            [[dim_S, 'Nop'], [dim_Q, 'Wstride']]
+                        ],
+                        'read-write': True
+                    }
+                ]
+            },
+            'instance': {
+                'G': self.g,
+                'C': in_channels_per_group,
+                'M': out_channels_per_group,
+                'N': self.n,
+                'R': self.r,
+                'S': self.s,
+                'P': self.h,
+                'Q': self.w,
+            }
+        }
+
+        return config
+
+    def to_fused_yaml(self):
+        # dims = list(map(lambda n: self.name + '_' + n, 'GCMRSNPQ'))
+        dims = list('GCMRSNPQ')
+        (dim_G, dim_C, dim_M, dim_R, dim_S, dim_N, dim_P, dim_Q) = dims
+
+        in_channels_per_group = self.c // self.g
+        out_channels_per_group = self.m // self.g
+
+        self.name += "_transpose"
+
+        config = {
+            'shape': {
+                'name': self.name,
+                'dimensions': dims,
+                'coefficients': [
+                    {
+                        'name': 'Cgroup',
+                        'default': in_channels_per_group
+                    },
+                    {
+                        'name': 'Mgroup',
+                        'default': out_channels_per_group
+                    },
+                    {
+                        'name': 'Hstride',
+                        'default': self.h_stride
+                    },
+                    {
+                        'name': 'Wstride',
+                        'default': self.w_stride
+                    },
+                    {
+                        'name': 'Nop',
+                        'default': 1
+                    }
+                ],
+                'data-spaces': [
+                    {
+                        'name': 'Weights',  # self.filter_name,
+                        'projection': [
+                            [[dim_G]],
+                            [[dim_C]],
+                            [[dim_M]],
+                            [[dim_R]],
+                            [[dim_S]]
+                        ]
+                    },
+                    {
+                        'name': 'Inputs',  # self.ifmap_name,
+                        'projection': [
+                            [[dim_N]],
+                            [[dim_G, 'Cgroup'], [dim_C, 'Nop']],
+                            [[dim_P]],
+                            [[dim_Q]]
+                        ]
+                    },
+                    {
+                        'name': 'Outputs',  # self.ofmap_name,
+                        'projection': [
+                            [[dim_N]],
+                            [[dim_G, 'Mgroup'], [dim_M, 'Nop']],
+                            [[dim_R, 'Nop'], [dim_P, 'Hstride']],
+                            [[dim_S, 'Nop'], [dim_Q, 'Wstride']]
+                        ],
+                        'read-write': True
+                    }
+                ]
+            },
+            'instance': {
+                'G': self.g,
+                'C': in_channels_per_group,
+                'M': out_channels_per_group,
+                'N': self.n,
+                'R': self.r,
+                'S': self.s,
+                'P': self.h,
+                'Q': self.w,
+            }
+        }
+
+        return config
+
 
 @dataclass
 class MaxPoolLayerDescription(LayerDescription):
