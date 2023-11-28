@@ -30,6 +30,7 @@ import transformers.models.distilbert.modeling_distilbert
 
 from pytorch2timeloop.utils.layer_descriptions import (
     ConvLayerDescription,
+    ConvTransposeLayerDescription,
     MaxPoolLayerDescription,
     MatrixMatrixMultiplyLayerDescription,
     MatmulFuncDescription
@@ -55,6 +56,33 @@ def _(module, input, output, name, ifmap_name):
         m=output.shape[1],
         w=input.shape[3],
         h=input.shape[2],
+        c=input.shape[1],
+        n=input.shape[0],
+        s=module.kernel_size[1],
+        r=module.kernel_size[0],
+        w_pad=module.padding[1],
+        h_pad=module.padding[0],
+        w_stride=module.stride[1],
+        h_stride=module.stride[0],
+        ifmap_name=ifmap_name,
+        filter_name=f'{name}_filter',
+        ofmap_name=f'{name}_out'
+    )
+    return description
+
+@generate_description.register(nn.ConvTranspose2d)
+def _(module, input, output, name, ifmap_name):
+    # model as conv layers
+    new_h = int((input.shape[2]-1) * module.stride[0] - 2 * module.padding[0] + 1 * (module.kernel_size[0]-1) + 0 + 1)
+    new_w = int((input.shape[3]-1) * module.stride[1] - 2 * module.padding[1] + 1 * (module.kernel_size[1]-1) + 0 + 1)
+    description = ConvLayerDescription(
+        name=name,
+        g=module.groups,
+        m=output.shape[1],
+        # w=input.shape[3],
+        # h=input.shape[2],
+        w=new_w,
+        h=new_h,
         c=input.shape[1],
         n=input.shape[0],
         s=module.kernel_size[1],

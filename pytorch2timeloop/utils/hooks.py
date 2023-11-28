@@ -31,6 +31,7 @@ from torch.fx import symbolic_trace
 from pytorch2timeloop.utils.layer_descriptions import (
     DepthWiseConvLayerDescription,
     ConvLayerDescription,
+    ConvTransposeLayerDescription,
     MatrixMatrixMultiplyLayerDescription
 )
 
@@ -44,7 +45,6 @@ def _null_hook(summary, batch_size):
     def hook(module, input, output):
         return
     return hook
-
 
 def _conv_hook(summary, batch_size,
                name: str=None, ifmap_name: str=None):
@@ -81,6 +81,50 @@ def _conv_hook(summary, batch_size,
             description = ConvLayerDescription(
                 w=input_shape[2],
                 h=input_shape[3],
+                c=module.in_channels,
+                m=module.out_channels,
+                s=module.kernel_size[0],
+                r=module.kernel_size[1],
+                w_stride=module.stride[0],
+                h_stride=module.stride[1],
+                w_pad=module.padding[0],
+                h_pad=module.padding[1],
+                n=batch_size,
+                name=name,
+                ifmap_name=ifmap_name,
+                filter_name=f'{name}.filter',
+                ofmap_name=f'{name}.out'
+            )
+        summary.append(description)
+
+    return hook
+
+
+def _conv_tr_hook(summary, batch_size,
+               name: str=None, ifmap_name: str=None):
+    """
+    A hook for transpose convolutional (not including depth-wise TR convolutional) layers, 
+    based on nn.ConvTranspose2d.
+
+    :param summary: the summary list we are adding to
+    :param batch_size: the input batch size
+    :return: a PyTorch module forward hook to collect a `LayerDescription` about this convolutional layer
+    """
+    if name is None:
+        name = 'conv_layer'
+    def hook(module, input, output):
+        input_shape = input[0].size()
+        if module.groups > 1 and module.groups == module.in_channels:
+            raise NotImplementedError(
+                f'Depth-wise Transpose Convolution not implemented'
+            )
+        else:
+            # model as conv layer
+            new_h = int((input.shape[2]-1) * module.stride[0] - 2 * module.padding[0] + 1 * (module.kernel_size[0]-1) + 0 + 1)
+            new_w = int((input.shape[3]-1) * module.stride[1] - 2 * module.padding[1] + 1 * (module.kernel_size[1]-1) + 0 + 1)
+            description = ConvLayerDescription(
+                w=new_w,
+                h=new_h,
                 c=module.in_channels,
                 m=module.out_channels,
                 s=module.kernel_size[0],
@@ -257,6 +301,11 @@ def hook_for(module: nn.Module, summary: list, batch_size: int,
         return _linear_hook(summary, batch_size, name)
     elif isinstance(module, nn.Conv2d):
         return _conv_hook(summary,
+                          batch_size,
+                          name,
+                          f'{module_args[0].name}.out')
+    elif isinstance(module, nn.ConvTranspose2d):
+        return _conv_tr_hook(summary,
                           batch_size,
                           name,
                           f'{module_args[0].name}.out')
