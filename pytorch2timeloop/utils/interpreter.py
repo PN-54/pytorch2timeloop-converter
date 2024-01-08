@@ -85,6 +85,9 @@ class Converter(fx.Interpreter):
         with self._set_current_node(n):
             args, kwargs = self.fetch_args_kwargs_from_env(n)
             if n.op == 'call_module' or n.op == 'call_function':
+                if 'mul' in name and type(args[0]) is float:
+                    _temp = args[1], args[0]
+                    args = _temp
                 return getattr(self, n.op)(n.target, args, kwargs, name,
                                            original_args)
             return getattr(self, n.op)(n.target, args, kwargs)
