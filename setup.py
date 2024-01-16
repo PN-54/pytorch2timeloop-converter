@@ -7,7 +7,7 @@ setup(name='pytorch2timeloop',
         install_requires=[
             "torch==1.13.1",
             "torchvision==0.14.1",
-            "numpy==1.21.6",
+            "numpy==1.22.4",
             "pyyaml==5.3",
             "transformers==4.26.0"
         ],
