@@ -25,7 +25,8 @@ def convert_model_with_sample_input(model: nn.Module,
                                     ignored_func=None,
                                     ignored_modules=None,
                                     bypassed_modules=None,
-                                    exception_module_names=[]):
+                                    exception_module_names=[],
+                                    ):
     """
     Convert a general PyTorch model to Timeloop problem files.
 
@@ -121,5 +122,5 @@ def _convert_from_layer_data(layer_data, model_name, save_dir, fuse=False):
 
 def _make_summary(model, sample_input, ignored_func, ignored_modules=None, bypassed_modules=None):
     converter = Converter(fx.symbolic_trace(model), ignored_func=ignored_func, ignored_modules=ignored_modules, bypassed_modules=bypassed_modules)
-    converter.run(sample_input)
+    converter.run(*sample_input)
     return converter.summary
